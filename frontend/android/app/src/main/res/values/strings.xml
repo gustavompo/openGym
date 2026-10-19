@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">openGym</string>
+    <string name="title_activity_main">openGym</string>
+    <string name="package_name">ch.duartesantos.opengym</string>
+    <string name="custom_url_scheme">ch.duartesantos.opengym</string>
+    <string name="rest_countdown_channel_name">Rest countdown</string>
+    <string name="rest_channel_name">Rest timer</string>
+    <string name="rest_quiet_channel_name">Rest timer, without vibration</string>
+    <string name="rest_channel_desc">Rest between sets, in the notification shade. The lock screen shows it only when notifications are allowed there.</string>
+    <!-- Wear OS bridge: the app is foreground for as long as a workout is running, so the phone is
+         not frozen and the watch can still reach the workout. One notification, and only while a
+         workout is in progress. -->
+    <string name="wear_session_channel_name">Workout in progress</string>
+    <string name="wear_session_channel_desc">Shown while a workout is running, so the watch stays in sync with the phone.</string>
+    <string name="wear_session_title">Workout in progress</string>
+    <string name="wear_session_text">Keeping your watch in sync</string>
+</resources>

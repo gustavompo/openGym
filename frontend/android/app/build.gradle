@@ -1,0 +1,103 @@
+apply plugin: 'com.android.application'
+
+// ---------------------------------------------------------------------------
+// Shared signing identity — openGym Wear OS fork.
+//
+// The watch companion and this phone app must be signed with the SAME
+// certificate for the Wearable Data Layer to route between them: Play services
+// matches on package name AND signing key. Credentials live in
+// keystore.properties, which is gitignored and is not part of this repo.
+//
+//   canonical copy: F:\android\projects\opengym-wearos\keystore\keystore.properties
+//   expected here : frontend/android/keystore.properties  (beside settings.gradle)
+//
+// keystore.gradle does the wiring, for both the debug and the release build
+// type. If keystore.properties is absent it does nothing and the build falls
+// back to the default Android debug key — anyone without the shared keystore
+// can still build this project.
+// ---------------------------------------------------------------------------
+apply from: rootProject.file('keystore.gradle')
+
+android {
+    namespace "ch.duartesantos.opengym"
+
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "ch.duartesantos.opengym"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 26
+        versionName "1.4.1"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // The barcode scanner's ML Kit library ships a native build for four CPU families.
+            // Phones are ARM; the two x86 builds only serve emulators and a few Chromebooks, which
+            // run ARM code through translation anyway. Leaving them out takes about 12 MB off
+            // the APK. Release only: the debug build keeps x86_64 for the emulator test rig.
+            ndk {
+                abiFilters 'arm64-v8a', 'armeabi-v7a'
+            }
+        }
+        debug {
+            // Test build installs side-by-side with the real app: its own applicationId, so both
+            // can live on one device. The name/icon label is overridden by the debug resource
+            // overlay in src/debug/res. The release build (the "real" app) is untouched.
+            applicationIdSuffix ".test"
+            // Signing is wired by keystore.gradle above. Note that the '.test'
+            // suffix means this APK's package name does NOT match the watch
+            // app's, which the Data Layer also requires — see
+            // docs/notes/03-opengym-fork-build.md.
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    // Writing workouts and weigh-ins to Health Connect (#200, HealthConnectPlugin). Off until the
+    // user turns it on. 1.1.0-alpha12 is the last release that builds with compileSdk 35 and AGP
+    // 8.7; 1.1.0 stable asks for compileSdk 36 and AGP 8.9.1.
+    implementation "androidx.health.connect:connect-client:$healthConnectVersion"
+    // The Wear OS Data Layer carrier (M4.4/M4.7): the message/data-item path between this app and
+    // the watch app, and the `WearableListenerService` AMS will unfreeze the process for. The TCP
+    // relay in WearBridgePlugin stays: it is the only carrier provable on the emulators here.
+    implementation "com.google.android.gms:play-services-wearable:$playServicesWearableVersion"
+    // The phone→watch launch (M8). The one action the Data Layer cannot perform: raising the
+    // watch's activity. RemoteActivityHelper is NOT in play-services-wearable — see
+    // opengym/frontend/android/variables.gradle and docs/notes/26-watch-autolaunch-findings.md §2.
+    implementation "androidx.wear:wear-remote-interactions:$wearRemoteInteractionsVersion"
+    implementation "com.google.guava:guava:$guavaVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

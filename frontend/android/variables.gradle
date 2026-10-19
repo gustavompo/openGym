@@ -1,0 +1,29 @@
+ext {
+    minSdkVersion = 23
+    compileSdkVersion = 35
+    targetSdkVersion = 35
+    androidxActivityVersion = '1.9.2'
+    androidxAppCompatVersion = '1.7.0'
+    androidxCoordinatorLayoutVersion = '1.2.0'
+    androidxCoreVersion = '1.15.0'
+    androidxFragmentVersion = '1.8.4'
+    coreSplashScreenVersion = '1.0.1'
+    androidxWebkitVersion = '1.12.1'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.2.1'
+    androidxEspressoCoreVersion = '3.6.1'
+    cordovaAndroidVersion = '10.1.1'
+    healthConnectVersion = '1.1.0-alpha12'
+    // Wear OS Data Layer (WearDataLayerService / WearLink): the carrier the watch uses on real
+    // hardware. 19.0.0 is the newest release that resolves against compileSdk 35 here.
+    playServicesWearableVersion = '19.0.0'
+    // The phone→watch launch (M8, WearLaunch.java). Deliberately NOT play-services-wearable:
+    // RemoteActivityHelper is absent from that artifact (checked against 19.0.0 and 20.0.1 in the
+    // Gradle cache); it lives here. Findings: docs/notes/26-watch-autolaunch-findings.md §2.
+    wearRemoteInteractionsVersion = '1.2.0'
+    // Its startRemoteActivity() returns a Guava ListenableFuture. Play services pins the
+    // interface-only `listenablefuture` artifact to `9999.0-empty-to-avoid-conflict-with-guava`,
+    // so the class only exists if full Guava is on the classpath. 31.1-android: already cached
+    // here, Java 8-safe, and the same major AndroidX builds against.
+    guavaVersion = '31.1-android'
+}
