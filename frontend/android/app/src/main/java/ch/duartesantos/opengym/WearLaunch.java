@@ -4,10 +4,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
-import androidx.core.content.ContextCompat;
 import androidx.wear.remote.interactions.RemoteActivityHelper;
 import com.google.common.util.concurrent.ListenableFuture;
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -67,23 +65,6 @@ public final class WearLaunch {
 
     private WearLaunch() {}
 
-    /**
-     * Launches on the named nodes, or on <b>all</b> connected watches when the list is empty (which
-     * the library supports: a {@code null} node id from a phone means every connected watch). Returns
-     * how many start calls were attempted.
-     */
-    public static int launchAll(Context ctx, List<String> nodeIds) {
-        if (ctx == null) return 0;
-        if (nodeIds == null || nodeIds.isEmpty()) {
-            return launch(ctx, null) ? 1 : 0;
-        }
-        int attempted = 0;
-        for (String nodeId : nodeIds) {
-            if (launch(ctx, nodeId)) attempted++;
-        }
-        return attempted;
-    }
-
     /** Launches on one node (or every watch, when {@code nodeId} is null). Never throws. */
     public static boolean launch(Context ctx, String nodeId) {
         if (ctx == null) return false;
@@ -98,7 +79,7 @@ public final class WearLaunch {
                 } catch (Exception e) {
                     Log.w(TAG, "start failed " + label + ": " + e);
                 }
-            }, ContextCompat.getMainExecutor(ctx));
+            }, EXECUTOR);
             Log.i(TAG, "start requested " + label);
             return true;
         } catch (Exception e) {

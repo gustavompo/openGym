@@ -145,10 +145,6 @@ function publish({ force = false, bumpRev = false } = {}) {
   // a repeated publish with the same answer sends nothing anyway.
   syncWearSession(projection.workout)
 
-  // M8: the watch app opening itself. The trigger set is ONE constant in `lib/wear-launch.js`
-  // (`LAUNCH_POLICY`), deliberately easy to change and deliberately not finalised here.
-  maybeLaunchWatch(projection)
-
   const unchanged = key === lastKey
   if (!force && unchanged && !bumpRev) return lastFrame
   if (unchanged) {
@@ -166,6 +162,10 @@ function publish({ force = false, bumpRev = false } = {}) {
   lastFrame = encodeState(rev, Date.now(), projection)
   note({ dir: 'out', type: 'state', rev, workout: projection.workout ? projection.workout.exerciseName : null, rest: projection.rest.running })
   send(lastFrame)
+  // M8: the watch app opening itself. The trigger set is ONE constant in `lib/wear-launch.js`
+  // (`LAUNCH_POLICY`), deliberately easy to change and deliberately not finalised here. After the
+  // send, so a watch that cold-starts on this trigger reads the new frame, not the previous one.
+  maybeLaunchWatch(projection)
   return lastFrame
 }
 

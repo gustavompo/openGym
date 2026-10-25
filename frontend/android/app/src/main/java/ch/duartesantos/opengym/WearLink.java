@@ -261,6 +261,7 @@ public final class WearLink {
         if (nodes.add(nodeId)) {
             note("node connected " + nodeId);
             serveHelloAndState(nodeId);
+            relaunchIfRecent();
         }
     }
 
@@ -281,6 +282,7 @@ public final class WearLink {
             if (!before.contains(nodeId)) {
                 note("node appeared " + nodeId);
                 serveHelloAndState(nodeId);
+                relaunchIfRecent();
             }
         }
     }
@@ -292,24 +294,66 @@ public final class WearLink {
 
     // --- launch -----------------------------------------------------------------------------------
 
+    /** Start requests per launch: now, +3 s, +8 s. The helper reports "sent", never "opened". */
+    private static final long[] LAUNCH_RETRY_DELAYS_MS = {3000L, 5000L};
+
+    /** A watch that appears this soon after a launch request gets one more start request. */
+    private static final long LAUNCH_REARM_WINDOW_MS = 120_000L;
+
+    /** No re-arm when an attempt was made this recently: the retry chain is still running. */
+    private static final long LAUNCH_REARM_QUIET_MS = 10_000L;
+
+    private final Runnable launchRetry = this::launchAttempt;
+    private int launchAttempts;
+    private long launchRequestedAt;
+    private long launchLastAttemptAt;
+
     /**
-     * Brings the watch app to the front, on every known node (M8, {@code docs/notes/26}).
+     * Brings the watch app to the front (M8, {@code docs/notes/26}; retry design {@code docs/notes/42}).
      *
      * <p>This is the one action the Data Layer itself cannot carry out: a frame reaches the watch's
      * process but has no privilege to raise its activity. {@link WearLaunch} asks the watch's own
-     * Play services to do it. With no known node yet, the node list is refreshed first, because a
-     * phone that has never served a frame may still have a watch it can launch.
+     * Play services to do it, with a null node id so the helper enumerates connected watches at call
+     * time rather than trusting this class's cached ledger, which can be stale.
      *
-     * @return nodes attempted, or -1 when the node list had to be refreshed first (the answer
-     *     arrives on a Play services callback rather than now).
+     * <p>The helper's future means the intent was <em>sent</em>, not that the watch app opened, so
+     * a single call is one chance only. Three start requests go out (now, +3 s, +8 s); a repeat on
+     * an app that is already in front is a no-op because the activity is {@code singleTop}.
+     *
+     * @return start requests made by this call: 0 or 1.
      */
     public int launchWatch() {
-        // With no known node the library still starts the activity on every connected watch, so an
-        // empty list is a valid request rather than a reason to defer: whether a watch is connected
-        // is Play services' answer to give, not ours to second-guess.
-        int n = WearLaunch.launchAll(app, nodes.ids());
-        note("launch watch -> " + n + " start request(s) for " + nodes.size() + " known node(s)");
-        return n;
+        handler.removeCallbacks(launchRetry);
+        launchAttempts = 0;
+        launchRequestedAt = System.currentTimeMillis();
+        return launchAttempt();
+    }
+
+    /** One start request, and the next retry unless this was the last one. */
+    private int launchAttempt() {
+        if (launchAttempts > LAUNCH_RETRY_DELAYS_MS.length) return 0;
+        int attempt = ++launchAttempts;
+        launchLastAttemptAt = System.currentTimeMillis();
+        boolean requested = WearLaunch.launch(app, null);
+        note("launch watch attempt " + attempt + "/" + (LAUNCH_RETRY_DELAYS_MS.length + 1)
+                + (requested ? " requested" : " could not be attempted"));
+        if (attempt <= LAUNCH_RETRY_DELAYS_MS.length) {
+            handler.postDelayed(launchRetry, LAUNCH_RETRY_DELAYS_MS[attempt - 1]);
+        }
+        return requested ? 1 : 0;
+    }
+
+    /**
+     * A node appearing shortly after a launch request is the case a one-shot launch misses: the
+     * watch was out of reach at the trigger. One extra request, not a second retry chain.
+     */
+    private void relaunchIfRecent() {
+        long now = System.currentTimeMillis();
+        if (launchRequestedAt == 0 || now - launchRequestedAt > LAUNCH_REARM_WINDOW_MS) return;
+        if (now - launchLastAttemptAt < LAUNCH_REARM_QUIET_MS) return;
+        launchLastAttemptAt = now;
+        note("node reappeared inside the launch window: one more start request");
+        WearLaunch.launch(app, null);
     }
 
     // --- state for the page's debug console and for the on-device evidence ------------------------

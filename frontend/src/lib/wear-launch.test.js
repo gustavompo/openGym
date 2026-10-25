@@ -111,6 +111,16 @@ describe('wear-launch driver', () => {
     expect(wearLaunchStatus().hasDriver).toBe(false)
   })
 
+  it('does not consume a trigger that arrives before the driver is installed', async () => {
+    await maybeLaunchWatch(proj({ workout: workout(1000) }), 0)
+    expect(wearLaunchStatus().workoutKey).toBe(null)
+    const driver = vi.fn(() => Promise.resolve({ requested: true }))
+    setWearLaunchDriver(driver)
+    await maybeLaunchWatch(proj({ workout: workout(1000) }), 1)
+    expect(driver).toHaveBeenCalledTimes(1)
+    expect(driver).toHaveBeenCalledWith({ trigger: 'workout-start' })
+  })
+
   it('records a driver failure instead of rejecting the publish path', async () => {
     setWearLaunchDriver(() => Promise.reject(new Error('no play services')))
     await expect(maybeLaunchWatch(proj({ workout: workout(1000) }), 0)).resolves.toEqual({ requested: false })

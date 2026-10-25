@@ -91,14 +91,16 @@ export function maybeLaunchWatch(projection, now = Date.now()) {
   const prev = { workoutKey: lastWorkoutKey, restKey: lastRestKey }
   const trigger = launchTriggerFor(projection, prev)
   const next = launchKeys(projection)
-  lastWorkoutKey = next.workoutKey
-  lastRestKey = next.restKey
-  if (!trigger) return Promise.resolve(null)
-  if (lastLaunchAt !== null && now - lastLaunchAt < LAUNCH_POLICY.minIntervalMs) return Promise.resolve(null)
-  if (!driver) {
+  const rateLimited = lastLaunchAt !== null && now - lastLaunchAt < LAUNCH_POLICY.minIntervalMs
+  // A trigger with no driver is NOT consumed: the link may still be starting, and the same trigger
+  // must be free to fire on the next publish. The rate-limit drop still consumes it, as it always has.
+  if (trigger && !driver && !rateLimited) {
     lastError = 'no driver'
     return Promise.resolve(null)
   }
+  lastWorkoutKey = next.workoutKey
+  lastRestKey = next.restKey
+  if (!trigger || rateLimited) return Promise.resolve(null)
   lastLaunchAt = now
   calls += 1
   // A driver that throws synchronously (a bridge without the method, in a test or an old shell)
